@@ -1,39 +1,50 @@
 :root {
     --bg-main: #f5f6fa;
     --border-color: #2f3640;
-    --shadow: 3px 3px 0px #2f3640;
     --btn-red: #ff6b6b;
     --btn-blue: #48dbfb;
     --btn-yellow: #feca57;
 }
 
 body { margin: 0; background: #2f3542; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
-#game-container { width: 375px; height: 667px; background: #54a0ff; border: 4px solid #fff; position: relative; display: flex; flex-direction: column; }
+#game-container { width: 375px; height: 667px; background: #54a0ff; border: 4px solid #fff; position: relative; overflow: hidden; }
 
-.port-header-new { height: 260px; display: flex; padding: 15px; }
-.port-center-new { flex: 1; text-align: center; color: white; text-shadow: 2px 2px #333; padding-top: 50px; font-size: 24px; font-weight: bold; }
-.money-text { font-size: 18px; margin-top: 10px; color: #feca57; }
-
-#interaction-area { flex: 1; background: white; margin: 10px; border: 3px solid #333; display: flex; flex-direction: column; overflow: hidden; }
-.sub-win-style { height: 160px; border-bottom: 2px dashed #ccc; display: flex; flex-direction: column; padding: 10px; overflow-y: auto; }
-.sub-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; }
-.close-x { cursor: pointer; color: #999; font-size: 18px; }
-
-#log-area { flex: 1; background: #f9f9f9; padding: 8px; font-size: 12px; color: #333; overflow-y: auto; }
-.scrollable { max-height: 400px; overflow-y: auto; text-align: left; padding: 10px; }
-
-.pixel-btn { border: 2px solid var(--border-color); box-shadow: var(--shadow); padding: 6px; margin: 3px; cursor: pointer; text-align: center; font-weight: bold; background: white; font-size: 12px; }
-.pixel-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #333; }
-.tiny-btn { width: 75px; height: 35px; display: flex; align-items: center; justify-content: center; }
-
-.game-title { text-align: center; margin-top: 80px; color: white; text-shadow: 4px 4px #333; }
-.btn-main { margin: 10px 60px; }
-.spacer { flex: 1; }
-.bottom-nav { display: flex; background: #ddd; padding: 5px; }
-.nav-btn { flex: 1; }
-.screen { display: none; height: 100%; flex-direction: column; }
+/* 核心：确保屏与屏之间完全分离，不重叠 */
+.screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; flex-direction: column; z-index: 10; background: #54a0ff; }
 .active { display: flex; }
+
+/* 主界面布局 */
+.game-title { text-align: center; margin-top: 60px; color: white; text-shadow: 4px 4px #333; font-size: 32px; }
+.btn-main { margin: 10px 60px; font-size: 16px; }
+.spacer { flex: 1; }
+
+/* 港口顶部区域 */
+.port-top-area { height: 260px; display: flex; padding: 15px; position: relative; }
+.side-menu { display: flex; flex-direction: column; width: 85px; }
+.port-center-info { flex: 1; text-align: center; color: white; text-shadow: 2px 2px #333; padding-top: 50px; font-size: 24px; font-weight: bold; }
+.money-text { font-size: 18px; color: #feca57; margin-top: 10px; }
+
+/* 下方白色交互区 */
+#interaction-area { flex: 1; background: white; margin: 0 10px 10px 10px; border: 3px solid #333; display: flex; flex-direction: column; overflow: hidden; z-index: 20; }
+.sub-win-style { height: 160px; border-bottom: 2px dashed #ccc; padding: 10px; overflow-y: auto; display: none; flex-direction: column; }
+.modal-show { display: flex; } /* 仅在调用时显示 sub-window */
+.sub-header { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+#sub-window-content { display: flex; flex-wrap: wrap; }
+
+#log-area { flex: 1; background: #f9f9f9; padding: 10px; font-size: 12px; color: #333; overflow-y: auto; }
+
+/* 按钮样式 */
+.pixel-btn { border: 2px solid var(--border-color); box-shadow: 3px 3px 0px #333; padding: 8px; margin: 4px; cursor: pointer; text-align: center; font-weight: bold; background: white; font-size: 12px; user-select: none; }
+.pixel-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #333; }
+.tiny-btn { height: 35px; line-height: 20px; }
+.bottom-nav { display: flex; background: #ddd; padding: 5px; border-top: 2px solid #333; height: 60px; }
+.nav-btn { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* 弹窗层 */
 .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.modal-box { width: 85%; background: white; border: 4px solid #333; }
+.modal-box { width: 85%; background: white; border: 4px solid #333; box-shadow: 8px 8px 0px #000; }
 .modal-header { background: #333; color: white; padding: 10px; text-align: center; }
+.modal-body { padding: 15px; font-size: 14px; line-height: 1.6; }
+.scrollable { max-height: 380px; overflow-y: auto; }
 .modal-footer { padding: 10px; display: flex; justify-content: center; }
+.faction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; }

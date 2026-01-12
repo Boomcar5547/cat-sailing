@@ -58,6 +58,149 @@ const portsData = {
 };
 
 let player = {
+    money: 3000, supply: 50, hull: 100, sailors: 10,
+    currentPort: "里斯本", lastPort: "",
+    favors: {}, inventory: [], history: ["【空】"]
+};
+
+const changelogs = [
+    "V0.42: 彻底修复界面重叠鬼影；重写 Screen 切换逻辑；修复按钮响应失效BUG；优化日志显示。",
+    "V0.41: 初始金币上调至3000；修复酒馆按钮丢失；日志下沉至交互区。",
+    "V0.375: 移除南京，修正东亚港口历史逻辑。",
+    "V0.3: 引入防横跳航行算法，实装沉浸式弹窗。"
+];
+
+// --- 核心切换逻辑 ---
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(id);
+    if(target) target.classList.add('active');
+}
+
+function showFactions() {
+    showScreen('faction-screen');
+    const grid = document.getElementById('faction-list');
+    grid.innerHTML = '';
+    const facs = [
+        {n:'西班牙',c:'#ff4757',p:'塞维利亚'}, 
+        {n:'葡萄牙',c:'#2ed573',p:'里斯本'}, 
+        {n:'大明',c:'#eb4d4b',p:'杭州'}, 
+        {n:'英格兰',c:'#70a1ff',p:'伦敦'}
+    ];
+    facs.forEach(f => {
+        const b = document.createElement('div');
+        b.className = 'pixel-btn';
+        b.style.background = f.c;
+        b.innerHTML = `🐱<br>${f.n}`;
+        b.onclick = () => {
+            player.faction = f.n;
+            player.currentPort = f.p;
+            startGame();
+        };
+        grid.appendChild(b);
+    });
+}
+
+function startGame() {
+    updatePortUI();
+    showScreen('port-screen');
+    addLog(`欢迎，${player.faction}的猫猫船长！`);
+}
+
+function updatePortUI() {
+    document.getElementById('display-port-name').innerText = player.currentPort;
+    document.getElementById('display-money').innerText = `￥${player.money}`;
+    const port = portsData[player.currentPort] || {isBig: false};
+    document.getElementById('btn-shipyard').style.display = port.isBig ? 'block' : 'none';
+    document.getElementById('btn-repair').style.display = port.isBig ? 'block' : 'none';
+}
+
+function openModule(type) {
+    const subWin = document.getElementById('sub-window');
+    const content = document.getElementById('sub-window-content');
+    const title = document.getElementById('sub-window-title');
+    subWin.classList.add('modal-show');
+    content.innerHTML = '';
+
+    if (type === 'market') {
+        title.innerText = "市场 - " + player.currentPort;
+        portsData[player.currentPort].goods.forEach(g => {
+            const b = document.createElement('div'); b.className = 'pixel-btn';
+            b.innerHTML = g.u ? `${g.n}<br>￥${g.p}` : `🔒${g.n}`;
+            b.onclick = () => {
+                if(g.u && player.money >= g.p) {
+                    player.money -= g.p; player.inventory.push({n:g.n, p:g.p});
+                    addLog(`买入 ${g.n}(-￥${g.p})`); updatePortUI();
+                } else if(g.u) catAlert("金币不足！");
+            };
+            content.appendChild(b);
+        });
+    } else if (type === 'tavern') {
+        title.innerText = "酒馆 - " + player.currentPort;
+        if(!player.favors[player.currentPort]) player.favors[player.currentPort] = 0;
+        
+        const createBtn = (txt, fn) => {
+            const b = document.createElement('div'); b.className='pixel-btn'; b.innerText=txt; b.onclick=fn; content.appendChild(b);
+        };
+        createBtn("招募水手(￥100)", () => {
+            if(player.money>=100){ player.money-=100; player.sailors+=5; addLog("招募了5名海猫水手。"); updatePortUI(); }
+        });
+        createBtn("调戏侍女", () => {
+            if(player.favors[player.currentPort]>=100) catAlert("侍女：'既然你这么诚心... vivo 50 解锁动态CG！'");
+            else catAlert("不可以哦，旮旯给木里不是这样的哦\n(好感度: " + player.favors[player.currentPort] + "/100)");
+        });
+    } else if (type === 'items') {
+        title.innerText = "货舱 (清仓卖出)";
+        if(player.inventory.length === 0) content.innerHTML = "货舱是空的喵。";
+        else {
+            const b = document.createElement('div'); b.className='pixel-btn'; b.style.background='var(--btn-yellow)'; b.style.width='100%';
+            b.innerText = `全部清仓 (预估回笼 ￥${Math.floor(player.inventory.reduce((a,b)=>a+b.p,0)*1.3)})`;
+            b.onclick = () => {
+                let gain = 0;
+                player.inventory.forEach(i => gain += Math.floor(i.p * (1.2 + Math.random()*0.3)));
+                player.money += gain; addLog(`清仓成功，获得金币 ￥${gain}`);
+                player.inventory = []; updatePortUI(); openModule('items');
+            };
+            content.appendChild(b);
+        }
+    }
+}
+
+function closeModule() {
+    document.getElementById('sub-window').classList.remove('modal-show');
+}
+
+function addLog(msg) {
+    const l = document.getElementById('log-area');
+    l.innerHTML = `<div>> ${msg}</div>` + l.innerHTML;
+}
+
+function catAlert(html) {
+    const m = document.getElementById('game-modal');
+    document.getElementById('modal-body').innerHTML = html;
+    m.style.display = 'flex';
+    document.getElementById('modal-ok-btn').onclick = () => m.style.display = 'none';
+}
+
+function showBigChangelog() {
+    let html = changelogs.map(l => `• ${l}<br><br>`).join('');
+    catAlert(html);
+}
+
+// 航行与存档逻辑
+function saveGame() { localStorage.setItem('bigcat_save', JSON.stringify(player)); addLog("保存成功。"); }
+function loadGame() { 
+    const d = localStorage.getItem('bigcat_save'); 
+    if(d) { player = JSON.parse(d); updatePortUI(); showScreen('port-screen'); addLog("读取成功。"); } 
+    else catAlert("没存档喵。");
+}
+
+function handleSupply() { if(player.money>=50){ player.money-=50; player.supply+=20; updatePortUI(); addLog("补给鱼干。"); } }
+function handleRepair() { if(player.money>=100){ player.money-=100; player.hull=100; updatePortUI(); catAlert("修好了！"); } }
+
+// 初始化
+updatePortUI();
+let player = {
     money: 3000,
     supply: 50,
     hull: 100,
