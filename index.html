@@ -13,7 +13,7 @@
             <div class="pixel-btn btn-main" style="background:var(--btn-red)" onclick="showFactions()">新的游戏</div>
             <div class="pixel-btn btn-main" style="background:var(--btn-blue)" onclick="loadGame()">读取存档</div>
             <div class="spacer"></div>
-            <div class="pixel-btn btn-log" onclick="catAlert('v0.3: 修正了航行逻辑，现在不会在两港之间反复横跳了；修正了侍女好感度检定。')">更新日志 v0.3</div>
+            <div class="pixel-btn btn-log" onclick="catAlert('v0.31: 修复了侍女逻辑冲突，优化了航行防横跳算法。')">更新日志 v0.31</div>
         </div>
 
         <div id="faction-screen" class="screen">
@@ -32,12 +32,10 @@
                     <div id="btn-shipyard" class="pixel-btn tiny-btn" onclick="openModule('shipyard')">造船厂</div>
                     <div class="pixel-btn tiny-btn" onclick="openModule('guild')">同业公会</div>
                 </div>
-                
                 <div class="port-center">
                     <div id="display-port-name">里斯本</div>
                     <div id="display-money" style="font-size:16px; color:#2d3436; margin-top:10px;">￥1000</div>
                 </div>
-
                 <div class="side-menu right">
                     <div class="pixel-btn tiny-btn btn-supply" style="background:var(--btn-yellow)" onclick="handleSupply()">补给</div>
                     <div id="btn-repair" class="pixel-btn tiny-btn btn-repair" style="background:#ff9f43" onclick="handleRepair()">修船</div>
@@ -46,7 +44,7 @@
             </div>
 
             <div id="sub-window" class="modal-hidden">
-                <h4 id="sub-window-title">市场</h4>
+                <h4 id="sub-window-title">模块</h4>
                 <div id="sub-window-content"></div>
                 <div class="pixel-btn" style="margin-top:auto" onclick="closeModule()">离开</div>
             </div>
@@ -67,8 +65,8 @@
                 <div class="modal-header">🐈 船长请注意</div>
                 <div id="modal-body" class="modal-body"></div>
                 <div class="modal-footer">
-                    <div class="pixel-btn" id="modal-ok-btn">确定</div>
-                    <div class="pixel-btn" id="modal-cancel-btn" style="background:var(--btn-red); color:white; display:none;">取消</div>
+                    <div class="pixel-btn" id="modal-ok-btn" style="min-width:60px">确定</div>
+                    <div class="pixel-btn" id="modal-cancel-btn" style="background:var(--btn-red); color:white; display:none; min-width:60px">取消</div>
                 </div>
             </div>
         </div>
