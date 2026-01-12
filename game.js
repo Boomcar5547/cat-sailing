@@ -57,74 +57,43 @@ const portsData = {
     "圣彼得堡": { x: 275, y: 340, region: "北海", isBig: true, goods: [{n:"蜂蜜",p:150,u:true}] }
 };
 
-// --- 2. 玩家数据 ---
 let player = {
-    name: "大猫船长", faction: "", level: 1, money: 1000,
-    supply: 20, hull: 100, sailors: 10, 
-    currentPort: "里斯本", 
-    lastPort: "", 
-    favors: {}, // 记录侍女好感
-    inventory: [], 
-    history: ["【空】", "【空】", "【空】", "【空】", "【空】", "【空】"]
+    money: 3000,
+    supply: 50,
+    hull: 100,
+    sailors: 10,
+    currentPort: "里斯本",
+    lastPort: "",
+    favors: {},
+    inventory: [],
+    history: ["【空】"]
 };
 
-// --- 3. UI 系统 ---
-function catAlert(msg, callback = null) {
-    const modal = document.getElementById('game-modal');
-    const body = document.getElementById('modal-body');
-    const okBtn = document.getElementById('modal-ok-btn');
-    const cancelBtn = document.getElementById('modal-cancel-btn');
-    body.innerText = msg;
-    cancelBtn.style.display = 'none';
-    modal.style.display = 'flex';
-    okBtn.onclick = () => { modal.style.display = 'none'; if(callback) callback(); };
-}
+const changelogs = [
+    "V0.41: 修复酒馆招募水手按钮丢失BUG；优化日志刷新机制。",
+    "V0.4: 实装贸易卖出系统；重构UI布局，日志下沉至白色区域；初始金币3000；修复重影。",
+    "V0.375: 移除南京，保留双屿/京城；补充地中海/北海港口至40+。",
+    "V0.36: 修正杭州丝绸产地错误；完善东亚港口布局。",
+    "V0.35: 引入坐标系统与地理距离逻辑；基于距离的补给消耗实装。",
+    "V0.3: 引入防横跳算法；实装沉浸式弹窗与侍女好感检定。"
+];
 
-function catConfirm(msg, onConfirm) {
-    catAlert(msg, onConfirm);
-    const cancelBtn = document.getElementById('modal-cancel-btn');
-    cancelBtn.style.display = 'block';
-    cancelBtn.onclick = () => { document.getElementById('game-modal').style.display = 'none'; };
-}
-
-// --- 4. 核心功能 ---
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
-
-function showFactions() {
-    showScreen('faction-screen');
-    const grid = document.getElementById('faction-list');
-    grid.innerHTML = '';
-    const factions = [
-        {n:'西班牙',c:'#ff4757',p:'塞维利亚'}, {n:'葡萄牙',c:'#2ed573',p:'里斯本'},
-        {n:'大明',c:'#eb4d4b',p:'杭州'}, {n:'英格兰',c:'#70a1ff',p:'伦敦'},
-        {n:'奥斯曼',c:'#1dd1a1',p:'伊斯坦布尔'}, {n:'日本',c:'#f5f6fa',p:'长崎'}
-    ];
-    factions.forEach(f => {
-        const div = document.createElement('div');
-        div.className = 'pixel-btn';
-        div.style.background = f.c;
-        div.innerHTML = `🐱<br>${f.n}`;
-        div.onclick = () => { player.faction = f.n; player.currentPort = f.p; updatePortUI(); showScreen('port-screen'); addLog(`开启了${f.n}的航程！`); };
-        grid.appendChild(div);
-    });
+function showBigChangelog() {
+    let content = changelogs.map(line => `• ${line}<br><br>`).join('');
+    catAlert(content);
 }
 
 function updatePortUI() {
-    const port = portsData[player.currentPort] || {isBig:false};
     document.getElementById('display-port-name').innerText = player.currentPort;
-    document.getElementById('display-money').innerText = `金币：￥${player.money}`;
-    document.getElementById('btn-shipyard').style.visibility = port.isBig ? 'visible' : 'hidden';
-    document.getElementById('btn-repair').style.visibility = port.isBig ? 'visible' : 'hidden';
+    document.getElementById('display-money').innerText = `￥${player.money}`;
+    const port = portsData[player.currentPort] || {isBig: false};
+    document.getElementById('btn-shipyard').style.display = port.isBig ? 'block' : 'none';
+    document.getElementById('btn-repair').style.display = port.isBig ? 'block' : 'none';
 }
 
 function openModule(type) {
-    const win = document.getElementById('sub-window');
     const content = document.getElementById('sub-window-content');
     const title = document.getElementById('sub-window-title');
-    win.className = 'modal-hidden modal-show';
     content.innerHTML = '';
 
     if (type === 'market') {
@@ -132,145 +101,143 @@ function openModule(type) {
         portsData[player.currentPort].goods.forEach(g => {
             const btn = document.createElement('div');
             btn.className = 'pixel-btn';
-            btn.style.textAlign = 'left';
-            btn.innerHTML = g.u ? `🛒 ${g.n} <span style="float:right">￥${g.p}</span>` : `🔒 <span style="color:red">${g.n}(未解锁)</span>`;
-            btn.onclick = () => { if(g.u) buyGoods(g); else catAlert("投资额不足！"); };
+            btn.innerHTML = g.u ? `${g.n}<br>￥${g.p}` : `🔒${g.n}`;
+            btn.onclick = () => {
+                if(g.u && player.money >= g.p) {
+                    player.money -= g.p;
+                    player.inventory.push({n: g.n, p: g.p});
+                    addLog(`买入 ${g.n}，花费 ￥${g.p}`);
+                    updatePortUI();
+                } else if(g.u) catAlert("金币不足喵！");
+            };
             content.appendChild(btn);
         });
     } else if (type === 'tavern') {
         title.innerText = "酒馆 - " + player.currentPort;
         if (!player.favors[player.currentPort]) player.favors[player.currentPort] = 0;
         
+        // 招募按钮
+        const btnRecruit = document.createElement('div');
+        btnRecruit.className = 'pixel-btn';
+        btnRecruit.innerText = "招募水手 (￥100)";
+        btnRecruit.onclick = () => {
+            if(player.money >= 100) {
+                player.money -= 100; player.sailors += 5;
+                addLog("在酒馆招募了5名猫猫水手。"); updatePortUI();
+            } else catAlert("钱不够。");
+        };
+        // 请喝奶
         const btnMilk = document.createElement('div');
         btnMilk.className = 'pixel-btn';
-        btnMilk.innerText = "请大家喝奶 (￥50)";
+        btnMilk.innerText = "请全场喝奶 (￥50)";
         btnMilk.onclick = () => {
-            if(player.money >= 50){
+            if(player.money >= 50) {
                 player.money -= 50; player.favors[player.currentPort] += 20;
-                addLog("名声上升了！侍女对你露出了微笑。"); updatePortUI();
-            } else { catAlert("钱不够。"); }
+                addLog("名声大涨！侍女脸红了。"); updatePortUI();
+            }
         };
-        
+        // 调戏
         const btnGirl = document.createElement('div');
         btnGirl.className = 'pixel-btn';
         btnGirl.innerText = "调戏侍女";
         btnGirl.onclick = () => {
-            // 严格检定：好感度 100 为分界点
-            if(player.favors[player.currentPort] >= 100) {
-                catAlert("侍女红着脸小声说：'既然你这么诚心... vivo 50 解锁动态CG！'");
-            } else {
-                catAlert("不可以哦，旮旯给木里不是这样的哦\n(好感度不足：" + player.favors[player.currentPort] + "/100)");
-            }
+            if(player.favors[player.currentPort] >= 100) catAlert("侍女：'既然你这么诚心... vivo 50 解锁动态CG！'");
+            else catAlert("不可以哦，旮旯给木里不是这样的哦\n(好感度不足: " + player.favors[player.currentPort] + "/100)");
         };
+
+        content.appendChild(btnRecruit);
         content.appendChild(btnMilk);
         content.appendChild(btnGirl);
-    } else { content.innerHTML = `<p style="text-align:center;padding:20px;">模块装修中...</p>`; }
+    } else if (type === 'items') {
+        title.innerText = "货舱 (清空卖出)";
+        if(player.inventory.length === 0) content.innerHTML = "空空如也。";
+        else {
+            const sellBtn = document.createElement('div');
+            sellBtn.className = 'pixel-btn';
+            sellBtn.style.background = 'var(--btn-yellow)';
+            sellBtn.style.width = '100%';
+            sellBtn.innerText = `全部卖出 (预计利润约 30%)`;
+            sellBtn.onclick = () => {
+                let gain = 0;
+                player.inventory.forEach(i => gain += Math.floor(i.p * (1.2 + Math.random()*0.2)));
+                player.money += gain;
+                addLog(`卖出全部货物，获得金币 ￥${gain}`);
+                player.inventory = [];
+                updatePortUI(); openModule('items');
+            };
+            content.appendChild(sellBtn);
+        }
+    }
 }
 
-function handleDepart() {
-    if (player.supply <= 0) return catAlert("补给为0，请先进行补给。小猫饿了会吃掉船长的！");
-    if (player.hull < 50) catConfirm("船体受损严重，确认出港？", () => showDepartMenu());
-    else showDepartMenu();
+function catAlert(msg) {
+    const modal = document.getElementById('game-modal');
+    document.getElementById('modal-body').innerHTML = msg;
+    modal.style.display = 'flex';
+    document.getElementById('modal-ok-btn').onclick = () => modal.style.display = 'none';
 }
 
-// 计算两个港口之间的直线距离
+function addLog(msg) {
+    const logArea = document.getElementById('log-area');
+    logArea.innerHTML = `<div>> ${msg}</div>` + logArea.innerHTML;
+}
+
 function calcDist(p1, p2) {
-    if (!portsData[p1] || !portsData[p2]) return 999;
-    const d1 = portsData[p1];
-    const d2 = portsData[p2];
+    const d1 = portsData[p1], d2 = portsData[p2];
     return Math.sqrt(Math.pow(d1.x - d2.x, 2) + Math.pow(d1.y - d2.y, 2));
 }
 
-// 核心：出港目的地菜单逻辑
+function handleDepart() {
+    if (player.supply <= 0) return catAlert("补给不足！");
+    showDepartMenu();
+}
+
 function showDepartMenu() {
-    const win = document.getElementById('sub-window');
     const content = document.getElementById('sub-window-content');
     const title = document.getElementById('sub-window-title');
-    win.className = 'modal-hidden modal-show';
-    title.innerText = "请选择目的地";
+    document.getElementById('sub-window').className = 'modal-hidden modal-show';
+    title.innerText = "选择目的地";
     content.innerHTML = '';
 
-    // 1. 显示历史港口 (仅限距离当前港口 500 单位以内的)
-    player.history.forEach((h, i) => {
-        if (h === "【空】" || h === player.currentPort) return;
-        const dist = calcDist(player.currentPort, h);
-        const btn = document.createElement('div');
-        btn.className = 'pixel-btn';
-        
-        if (dist > 500) {
-            btn.style.color = '#999';
-            btn.innerHTML = `<span style="font-size:10px;">[过远]</span> ${h}`;
-        } else {
-            btn.innerText = `${h} (耗时约${Math.ceil(dist/10)}天)`;
-            btn.onclick = () => sailTo(h);
+    player.history.forEach(h => {
+        if(h !== "【空】" && h !== player.currentPort) {
+            const b = document.createElement('div'); b.className = 'pixel-btn';
+            b.innerText = h; b.onclick = () => sailTo(h);
+            content.appendChild(b);
         }
-        content.appendChild(btn);
     });
-
-    // 2. XJB探索按钮：只去最近的一个港口
     const xjb = document.createElement('div');
-    xjb.className = 'pixel-btn';
-    xjb.style.background = 'var(--btn-yellow)';
-    xjb.innerText = "7. XJB探索 (寻找最近港口)";
+    xjb.className = 'pixel-btn'; xjb.style.background = 'var(--btn-yellow)';
+    xjb.innerText = "XJB探索";
     xjb.onclick = () => {
-        let closest = null;
-        let minDist = Infinity;
-        
-        Object.keys(portsData).forEach(p => {
-            // 排除当前港口和上一个停留港口，防止反复横跳
-            if (p !== player.currentPort && p !== player.lastPort) {
-                let d = calcDist(player.currentPort, p);
-                if (d < minDist) {
-                    minDist = d;
-                    closest = p;
-                }
-            }
-        });
-
-        if (closest) sailTo(closest);
-        else catAlert("这片海域没猫了！");
+        const possible = Object.keys(portsData).filter(p => p !== player.currentPort && p !== player.lastPort);
+        let closest = possible.sort((a,b) => calcDist(player.currentPort, a) - calcDist(player.currentPort, b))[0];
+        sailTo(closest);
     };
     content.appendChild(xjb);
 }
 
-// 核心：航行执行逻辑
 function sailTo(dest) {
     const dist = calcDist(player.currentPort, dest);
-    const supplyNeed = Math.max(1, Math.ceil(dist / 15)); // 每15单位消耗1补给
-
-    if (player.supply < supplyNeed) {
-        catAlert(`补给不足！\n航向 ${dest} 需要 ${supplyNeed} 份鱼干，你只有 ${player.supply} 份。`);
-        return;
-    }
-
+    const cost = Math.ceil(dist / 15);
+    if(player.supply < cost) return catAlert("补给不足航行至此。");
     closeModule();
-    addLog(`扬帆起航！离开 ${player.currentPort}，目标 [${dest}]。`);
-    
-    // 执行扣除
-    player.supply -= supplyNeed;
-    player.hull -= Math.floor(dist / 100); 
-
-    // 模拟航行延迟
+    addLog(`扬帆！目标 [${dest}]`);
+    player.supply -= cost;
     setTimeout(() => {
-        player.lastPort = player.currentPort; // 更新锚点
+        player.lastPort = player.currentPort;
         player.currentPort = dest;
-        
-        // 维护历史记录
-        if (!player.history.includes(dest)) {
-            player.history.unshift(dest);
-            if (player.history.length > 6) player.history.pop();
-        }
-        
-        updatePortUI();
-        catAlert(`抵达了 ${dest}！\n消耗补给：${supplyNeed}，船体磨损：${Math.floor(dist/100)}%`);
-        addLog(`抵达港口 ${dest}。猫猫们迫不及待地跳进了水里。`);
-    }, 1200);
+        if(!player.history.includes(dest)) player.history.unshift(dest);
+        updatePortUI(); catAlert(`抵达了 ${dest}！`);
+    }, 1000);
 }
 
-function handleSupply() { if(player.money >= 50) { player.money -= 50; player.supply += 20; updatePortUI(); addLog("补给完成。"); } }
-function handleRepair() { if(player.money >= 100) { player.money -= 100; player.hull = 100; updatePortUI(); catAlert("修好了！"); } }
-function buyGoods(g) { if(player.money >= g.p) { player.money -= g.p; player.inventory.push(g.n); addLog(`买入 ${g.n}`); updatePortUI(); } }
+function handleSupply() { if(player.money >= 50) { player.money -= 50; player.supply += 20; updatePortUI(); addLog("补给鱼干。"); } }
+function handleRepair() { if(player.money >= 100) { player.money -= 100; player.hull = 100; updatePortUI(); catAlert("修理完毕。"); } }
 function closeModule() { document.getElementById('sub-window').className = 'modal-hidden'; }
-function addLog(msg) { const log = document.getElementById('log-area'); log.innerHTML += `<div>> ${msg}</div>`; log.scrollTop = log.scrollHeight; }
-function saveGame() { localStorage.setItem('bigcat_save', JSON.stringify(player)); addLog("进度已存。"); }
-function loadGame() { const d = localStorage.getItem('bigcat_save'); if(d) { player = JSON.parse(d); updatePortUI(); showScreen('port-screen'); addLog("读取成功。"); } else catAlert("无存档。"); }
+function saveGame() { localStorage.setItem('bigcat_save', JSON.stringify(player)); addLog("存档成功。"); }
+function loadGame() { 
+    const d = localStorage.getItem('bigcat_save'); 
+    if(d) { player = JSON.parse(d); updatePortUI(); document.getElementById('port-screen').className = 'screen active'; addLog("读档成功。"); } 
+}
+updatePortUI();
